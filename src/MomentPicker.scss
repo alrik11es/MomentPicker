@@ -108,6 +108,11 @@ div.picker {
     background-color: #fff;
 
     .current {
+      color: #A4AEB9;
+      background-color: #ffd;
+    }
+
+    .selected {
       color: #fff;
       background-color: #4FC1E9;
     }
@@ -121,7 +126,7 @@ div.picker {
       background-color: #F6F8FA;
 
       span {
-        line-height: 2em;
+        line-height: 3em;
         width: (100% / 7);
         background-color: transparent;
       }
@@ -130,7 +135,7 @@ div.picker {
     div.month {
 
       a, span {
-        line-height: (13em / 6);
+        line-height: 2em;
         width: (100% / 7);
       }
     }
@@ -150,5 +155,10 @@ div.picker {
       width: 25%;
       line-height: 5em;
     }
+  }
+
+  &.top div.header a.current {
+    cursor: default;
+    pointer-events: none;
   }
 }

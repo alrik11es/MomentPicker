@@ -1,6 +1,15 @@
 (function($, undefined) {
 
     var pluginName = 'MomentPicker';
+    var today = moment().startOf('day');
+    var defaults = {
+        date : today,
+        level: 0,
+        style: {
+            selected: 'selected',
+            current : 'current'
+        }
+    };
 
     $.fn[pluginName] = function(options) {
 
@@ -11,19 +20,14 @@
             return plugin;
         }
 
-        var defaults = {
-            date: moment().startOf('day')
-        };
-
         return this.each(function() {
 
-            var settings = $.extend({}, defaults, options);
-
             var api;
+            var settings = $.extend(true, {}, defaults, options);
             var showedDate = settings.date;
-            var currentDate = showedDate.clone();
+            var selectedDate = showedDate.clone();
             var picker = $(this);
-            var _level = 0;
+            var _level = settings.level;
 
             picker.html([
                 '<div class="header">',
@@ -54,17 +58,17 @@
                 getMin = falsy,
                 getMax = falsy;
 
-            if (settings.hasOwnProperty('min')) {
+            var setMin = function(o) {
 
-                (function() {
+                if (o instanceof Function) {
 
-                    if (settings.min instanceof Function) {
+                    getMin = o;
 
-                        getMin = settings.min;
+                } else {
 
-                    } else {
+                    (function() {
 
-                        var min = moment(settings.min);
+                        var min = moment(o);
 
                         if (moment.isMoment(min)) {
 
@@ -74,36 +78,47 @@
                                 return min.clone();
                             };
                         }
-                    }
+                    })();
+                }
 
-                    yearBeforeMin = function(year) {
+                yearBeforeMin = function(year) {
 
-                        return year < getMin().year();
-                    };
+                    return year < getMin().year();
+                };
 
-                    monthBeforeMin = function(date) {
+                monthBeforeMin = function(date) {
 
-                        return date.clone().startOf('month') < getMin().startOf('month');
-                    };
+                    return date.clone().startOf('month') < getMin().startOf('month');
+                };
 
-                    dayBeforeMin = function(date) {
+                dayBeforeMin = function(date) {
 
-                        return date < getMin();
-                    };
-                })();
-            }
+                    return date < getMin();
+                };
 
-            if (settings.hasOwnProperty('max')) {
+                var min = getMin();
 
-                (function() {
+                if (min > selectedDate) {
 
-                    if (settings.max instanceof Function) {
+                    val(min);
 
-                        getMax = settings.max;
+                } else {
 
-                    } else {
+                    render();
+                }
+            };
 
-                        var max = moment(settings.max);
+            var setMax = function(o) {
+
+                if (o instanceof Function) {
+
+                    getMax = o;
+
+                } else {
+
+                    (function() {
+
+                        var max = moment(o);
 
                         if (moment.isMoment(max)) {
 
@@ -113,24 +128,42 @@
                                 return max.clone();
                             };
                         }
-                    }
+                    })();
+                }
 
-                    yearAfterMax = function(year) {
+                yearAfterMax = function(year) {
 
-                        return year > getMax().year();
-                    };
+                    return year > getMax().year();
+                };
 
-                    monthAfterMax = function(date) {
+                monthAfterMax = function(date) {
 
-                        return date.clone().endOf('month') > getMax().endOf('month');
-                    };
+                    return date.clone().startOf('month') > getMax().startOf('month');
+                };
 
-                    dayAfterMax = function(date) {
+                dayAfterMax = function(date) {
 
-                        return date > getMax();
-                    };
-                })();
-            }
+                    return date > getMax();
+                };
+
+                var max = getMax();
+
+                if (max < selectedDate) {
+
+                    val(max);
+
+                } else {
+
+                    render();
+                }
+            };
+
+            var emit = function(name) {
+
+                var event = $.Event(name);
+                event.api = api;
+                picker.trigger(event);
+            };
 
             var allowedYear = function(year) {
 
@@ -153,20 +186,23 @@
 
                     var date = moment(arguments[0]);
 
-                    if (moment.isMoment(date)) {
+                    if (date.isValid()) {
 
                         date.startOf('day');
 
                         if (allowedDay(date)) {
 
-                            currentDate = date;
+                            selectedDate = date;
+                            emit('pick');
+                            showedDate = selectedDate.clone();
+                            render();
                         }
                     }
 
                     return api;
                 }
 
-                return currentDate.clone();
+                return selectedDate.clone();
             };
 
             var renderYears = function() {
@@ -179,7 +215,18 @@
 
                 while (a < b) {
 
-                    var classes = a !== currentDate.year() ? [] : ['current'];
+                    var classes = [];
+
+                    if (a === today.year()) {
+
+                        classes.push(settings.style.current);
+                    }
+
+                    if (a === selectedDate.year()) {
+
+                        classes.push(settings.style.selected);
+                    }
+
                     var type = allowedYear(a) ? 'a' : 'span';
 
                     html += '<' + type + ' data-year="' + a + '" class="' + classes.join(' ') + '">' + a + '</' + type + '>';
@@ -187,6 +234,7 @@
                 }
 
                 body.html(html);
+                emit('renderYears');
             };
 
             var renderMonths = function() {
@@ -199,7 +247,18 @@
 
                 while (a < b) {
 
-                    var classes = a.format('M-YYYY') !== currentDate.format('M-YYYY') ? [] : ['current'];
+                    var classes = [];
+
+                    if (a.format('M-YYYY') === today.format('M-YYYY')) {
+
+                        classes.push(settings.style.current);
+                    }
+
+                    if (a.format('M-YYYY') === selectedDate.format('M-YYYY')) {
+
+                        classes.push(settings.style.selected);
+                    }
+
                     var type = allowedMonth(a) ? 'a' : 'span';
 
                     html += '<' + type + ' data-month="' + a.format('M-YYYY') + '" class="' + classes.join(' ') + '">' + a.format('MMM') + '</' + type + '>';
@@ -207,6 +266,7 @@
                 }
 
                 body.html(html);
+                emit('renderMonths');
             };
 
             var renderDays = function() {
@@ -232,7 +292,18 @@
 
                 while (a < b) {
 
-                    var classes = a.format('D-M-YYYY') !== currentDate.format('D-M-YYYY') ? [] : ['current'];
+                    var classes =  [];
+
+                    if (a.format('D-M-YYYY') === today.format('D-M-YYYY')) {
+
+                        classes.push(settings.style.current);
+                    }
+
+                    if (a.format('D-M-YYYY') === selectedDate.format('D-M-YYYY')) {
+
+                        classes.push(settings.style.selected);
+                    }
+
                     var type = allowedDay(a) ? 'a' : 'span';
 
                     if (a.month() !== showedDate.month()) {
@@ -251,6 +322,7 @@
                 html += '</div>';
 
                 body.html(html);
+                emit('renderDays');
             };
 
             var args = [
@@ -265,23 +337,36 @@
 
                 if (arguments.length > 0) {
 
-                    _level = arguments[0];
+                    _level = Math.max(arguments[0], settings.level);
+                }
+
+                picker.removeClass('top');
+
+                if (_level === settings.level) {
+
+                    picker.addClass('top');
                 }
 
                 renderer[_level]();
+                emit('render');
             };
-            
-            next.click(function() {
+
+            var showNext = function() {
 
                 showedDate.add(args[_level]);
                 render();
-            });
+                emit('showNext');
+            };
 
-            prev.click(function() {
+            var showPrev = function() {
 
                 showedDate.subtract(args[_level]);
                 render();
-            });
+                emit('showPrev');
+            };
+            
+            next.click(showNext);
+            prev.click(showPrev);
 
             currentLevel.click(function() {
 
@@ -303,20 +388,57 @@
 
             body.on('click', 'a[data-day]', function() {
 
-                currentDate = moment($(this).data('day'), 'D-M-YYYY');
-                showedDate = currentDate.clone();
-                render();
+                val(moment($(this).data('day'), 'D-M-YYYY'));
             });
 
-            api = {
-                val: val,
-                renderYears: function () { render(0); },
-                renderMonths: function () { render(1); },
-                renderDays: function () { render(2); }
+            var min = function() {
+
+                if (arguments.length > 0) {
+
+                    setMin(arguments[0]);
+
+                    return api;
+                }
+
+                return getMin();
             };
+
+            var max = function() {
+
+                if (arguments.length > 0) {
+
+                    setMax(arguments[0]);
+
+                    return api;
+                }
+
+                return getMax();
+            };
+
+            api = {
+                val         : val,
+                next        : showNext,
+                prev        : showPrev,
+                min         : min,
+                max         : max,
+                renderYears : function () { render(0); },
+                renderMonths: function () { render(1); },
+                renderDays  : function () { render(2); }
+            };
+
+            if (settings.hasOwnProperty('min')) {
+
+                setMin(settings.min);
+            }
+
+            if (settings.hasOwnProperty('max')) {
+
+                setMax(settings.max);
+            }
 
             picker.data(pluginName, api);
 
+            emit('ready');
             render();
         });
     };
